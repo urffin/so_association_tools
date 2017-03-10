@@ -379,4 +379,61 @@ def suggest_question():
         "status": True,
         "msg": gettext("Suggestion was added")
     })  
+
+@application.route("/api/leaderboard")
+@application.route("/api/leaderboard/")
+def api_leaderboard():    
+    pg_session = db_session()
+    query = pg_session.query(User.user_id.label('UserId'), func.count(Association.soen_id).label('AssociationCount')).filter(User.id==Association.user_id).group_by('UserId').order_by(desc('AssociationCount')).distinct()
+    users = query.all()
+
+    resp = list()
+    for user in users:
+        resp.append({
+            "id": user.UserId,
+            "count": user.AssociationCount
+        })
+
+    pg_session.close()
+
+    return jsonify(**{
+        "items": resp
+    })
+
+@application.route("/setting-string", endpoint="setting_string")
+@application.route("/setting-string/", endpoint="setting_string")
+def setting_string():    
+    pg_session = db_session()
+    query = pg_session.query(Association.soen_id, Association.soint_id).distinct()
+    pairs = query.all()
+    count = query.count() - 1
+
     
+    association_list = list()
+    resp = ""
+    index = 0
+    delimiter = ","
+    for pair in pairs:
+        soen, soint = pair
+        existed = False
+
+        for item in association_list:
+            if item["soen"] == soen or item["soint"] == soint:
+                existed = True
+                break
+
+        if not existed:
+            resp = resp + str(soen) + "=" + str(soint)
+            if index < count:
+                resp = resp + delimiter
+            
+            association_list.append({
+                "soen": soen,
+                "soint": soint
+            })
+
+        index +=1
+
+    pg_session.close()    
+    
+    return resp
